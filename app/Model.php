@@ -1,57 +1,73 @@
 <?php
-abstract class Model{
-    // Informations de la base de données
+abstract class Model {
+    // Informations de la base de données (idéalement à stocker dans un fichier config.php)
     private $host = "localhost";
     private $db_name = "mvc";
     private $username = "root";
     private $password = "";
-     
-    // Propriété qui contiendra l'instance de la connexion
+    
+    // Instance de la connexion
     protected $_connexion;
 
-    // Propriétés permettant de personnaliser les requêtes
+    // Propriétés dynamiques
     public $table;
     public $id;
 
     /**
-     * Fonction d'initialisation de la base de données
-     *
-     * @return void
+     * Initialise la connexion à la base de données
      */
-    public function getConnection(){
-        // On supprime la connexion précédente
+    public function getConnection() {
         $this->_connexion = null;
 
-        // On essaie de se connecter à la base
-        try{
-            $this->_connexion = new PDO("mysql:host=" . $this->host . ";dbname=" . $this->db_name, $this->username, $this->password);
-            $this->_connexion->exec("set names utf8");
-        }catch(PDOException $exception){
-            echo "Erreur de connexion : " . $exception->getMessage();
+        try {
+            // Connexion avec options de sécurité et de performance
+            $this->_connexion = new PDO(
+                "mysql:host={$this->host};dbname={$this->db_name};charset=utf8", 
+                $this->username, 
+                $this->password, 
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, // Activer les exceptions
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, // Retourner un tableau associatif
+                    PDO::ATTR_PERSISTENT => false // Désactiver la connexion persistante pour éviter certains bugs
+                ]
+            );
+        } catch (PDOException $exception) {
+            throw new Exception("Erreur de connexion : " . $exception->getMessage());
         }
     }
 
     /**
-     * Méthode permettant d'obtenir un enregistrement de la table choisie en fonction d'un id
+     * Récupère un enregistrement par son ID
      *
-     * @return void
+     * @return array|null
      */
-    public function getOne(){
-        $sql = "SELECT * FROM ".$this->table." WHERE id=".$this->id;
+    public function getOne() {
+        if (!isset($this->id) || empty($this->table)) {
+            throw new Exception("Erreur : ID ou table non défini.");
+        }
+
+        $sql = "SELECT * FROM {$this->table} WHERE id = :id";
         $query = $this->_connexion->prepare($sql);
+        $query->bindParam(':id', $this->id, PDO::PARAM_INT);
         $query->execute();
-        return $query->fetch();    
+
+        return $query->fetch() ?: null;
     }
 
     /**
-     * Méthode permettant d'obtenir tous les enregistrements de la table choisie
+     * Récupère tous les enregistrements de la table
      *
-     * @return void
+     * @return array
      */
-    public function getAll(){
-        $sql = "SELECT * FROM ".$this->table;
+    public function getAll() {
+        if (empty($this->table)) {
+            throw new Exception("Erreur : Table non définie.");
+        }
+
+        $sql = "SELECT * FROM {$this->table}";
         $query = $this->_connexion->prepare($sql);
         $query->execute();
-        return $query->fetchAll();    
+
+        return $query->fetchAll();
     }
 }
